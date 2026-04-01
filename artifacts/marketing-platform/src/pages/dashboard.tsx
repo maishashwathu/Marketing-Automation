@@ -379,38 +379,216 @@ function AdInsightsContent() {
   );
 }
 
-// ── Content Calendar ─────────────────────────────────────────────────────────
+// ── Shared platform + calendar helpers ───────────────────────────────────────
 
 const PLATFORMS = [
-  { label: "Instagram", color: "bg-pink-500", text: "text-pink-600" },
-  { label: "LinkedIn",  color: "bg-blue-600", text: "text-blue-700" },
-  { label: "X",         color: "bg-zinc-800",  text: "text-zinc-700" },
-  { label: "Facebook",  color: "bg-blue-500",  text: "text-blue-600" },
-];
+  { label: "Instagram", color: "bg-pink-500" },
+  { label: "LinkedIn",  color: "bg-blue-600" },
+  { label: "X",         color: "bg-zinc-800" },
+  { label: "Facebook",  color: "bg-blue-500" },
+] as const;
+
+type PlatformLabel = typeof PLATFORMS[number]["label"];
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-function buildCalendar(dna: BusinessDNA) {
-  const pillars = dna.contentPillars?.length
+function getPillars(dna: BusinessDNA) {
+  return dna.contentPillars?.length
     ? dna.contentPillars
     : ["Brand Story", "Tips & Tutorials", "Customer Spotlights", "Industry News"];
-
-  return Array.from({ length: 28 }, (_, i) => {
-    const week = Math.floor(i / 7) + 1;
-    const day  = DAYS[i % 7];
-    const pillar = pillars[i % pillars.length];
-    const platform = PLATFORMS[i % PLATFORMS.length];
-    return { week, day, date: `Apr ${i + 1}`, pillar, platform };
-  });
 }
+
+function buildCalendar(dna: BusinessDNA) {
+  const pillars = getPillars(dna);
+  return Array.from({ length: 28 }, (_, i) => ({
+    week:     Math.floor(i / 7) + 1,
+    day:      DAYS[i % 7],
+    date:     `Apr ${i + 1}`,
+    pillar:   pillars[i % pillars.length],
+    platform: PLATFORMS[i % PLATFORMS.length],
+  }));
+}
+
+function buildCaption(dna: BusinessDNA, pillar: string, platform: PlatformLabel): string {
+  const name     = dna.businessName ?? "our brand";
+  const tone     = dna.brandTone?.split(",")[0]?.toLowerCase().trim() ?? "engaging";
+  const audience = dna.targetAudience?.split(" ").slice(0, 6).join(" ") ?? "your audience";
+  const tag      = `#${name.replace(/\s+/g, "")}`;
+
+  switch (platform) {
+    case "Instagram":
+      return `✨ ${pillar} — at ${name} we make it happen.\n\nEvery piece of content we create is built around what matters most to ${audience}. This one's for you. 🚀\n\n${tone.charAt(0).toUpperCase() + tone.slice(1)}. On-brand. Always.\n\n${tag} #ContentMarketing #GrowthMindset #SmallBiz`;
+    case "LinkedIn":
+      return `At ${name}, we focus on ${pillar.toLowerCase()} because that's what moves the needle for ${audience}.\n\nHere's our take: clarity beats volume every time. Brands that know their voice and stick to it are the ones that compound over time.\n\nWhat does ${pillar.toLowerCase()} mean for your business? Drop a thought in the comments. 💡`;
+    case "X":
+      return `${pillar} isn't a tactic — it's a mindset.\n\n${name} helps ${audience} build it from the ground up.\n\nHere's how we do it 🧵👇\n\n${tag}`;
+    case "Facebook":
+      return `📣 ${pillar} spotlight!\n\nAt ${name}, we're helping ${audience} get real results through smarter, more intentional marketing.\n\nThis week we're focusing on ${pillar.toLowerCase()} — and the response has been incredible. 🎯\n\n👉 Save this post and share it with someone who needs to hear it!`;
+  }
+}
+
+// ── Image fetching hook ───────────────────────────────────────────────────────
+
+interface UnsplashImage {
+  id: string;
+  url: string;
+  small: string;
+  thumb: string;
+  alt: string;
+  author: string;
+  photoUrl: string;
+}
+
+function usePillarImages(dna: BusinessDNA) {
+  const [images, setImages] = useState<Record<string, UnsplashImage>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const pillars = getPillars(dna);
+    let cancelled = false;
+
+    const fetchAll = async () => {
+      setLoading(true);
+      const results: Record<string, UnsplashImage> = {};
+
+      await Promise.all(
+        pillars.map(async (pillar) => {
+          try {
+            const q = `${pillar} ${dna.businessName} business`.slice(0, 120);
+            const res = await fetch(`/api/images?q=${encodeURIComponent(q)}&per_page=1`);
+            if (!res.ok) return;
+            const data = (await res.json()) as { images: UnsplashImage[] };
+            if (data.images?.[0]) results[pillar] = data.images[0];
+          } catch {
+            // ignore per-pillar failures
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setImages(results);
+        setLoading(false);
+      }
+    };
+
+    void fetchAll();
+    return () => { cancelled = true; };
+  }, [dna.businessName]);
+
+  return { images, loading };
+}
+
+// ── Copy button ───────────────────────────────────────────────────────────────
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  return (
+    <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={handleCopy}>
+      {copied ? (
+        <><Check className="h-3.5 w-3.5 text-green-500" /><span className="text-green-600 text-xs">Copied!</span></>
+      ) : (
+        <><Copy className="h-3.5 w-3.5" /><span className="text-xs">Copy</span></>
+      )}
+    </Button>
+  );
+}
+
+// ── Post card ─────────────────────────────────────────────────────────────────
+
+function PostCard({
+  day, date, pillar, platform, dna, image,
+}: {
+  day: string; date: string; pillar: string;
+  platform: typeof PLATFORMS[number];
+  dna: BusinessDNA;
+  image: UnsplashImage | undefined;
+}) {
+  const caption = buildCaption(dna, pillar, platform.label);
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-xl border overflow-hidden bg-card shadow-sm">
+      {/* Image */}
+      <div className="relative w-full aspect-video bg-muted overflow-hidden">
+        {image ? (
+          <img
+            src={image.small}
+            alt={image.alt}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+          </div>
+        )}
+        {/* Platform badge overlay */}
+        <span
+          className={`absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full text-white ${platform.color} shadow`}
+        >
+          {platform.label}
+        </span>
+        {/* Date chip */}
+        <span className="absolute top-2 right-2 text-[10px] font-semibold bg-black/60 text-white px-2 py-0.5 rounded-full">
+          {day} · {date}
+        </span>
+        {/* Unsplash credit */}
+        {image && (
+          <a
+            href={`${image.photoUrl}?utm_source=marketai&utm_medium=referral`}
+            target="_blank"
+            rel="noreferrer"
+            className="absolute bottom-1 right-2 text-[9px] text-white/70 hover:text-white"
+          >
+            📷 {image.author} / Unsplash
+          </a>
+        )}
+      </div>
+
+      {/* Card body */}
+      <div className="p-3 space-y-2">
+        <p className="text-xs font-semibold text-foreground leading-tight">{pillar}</p>
+        <p className={`text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap ${expanded ? "" : "line-clamp-3"}`}>
+          {caption}
+        </p>
+        <div className="flex items-center justify-between pt-1">
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="text-[10px] text-primary font-medium hover:underline"
+          >
+            {expanded ? "Show less" : "Read full caption"}
+          </button>
+          <CopyButton text={caption} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Content Calendar ──────────────────────────────────────────────────────────
 
 function ContentCalendarContent({ dna }: { dna: BusinessDNA }) {
   const [week, setWeek] = useState(1);
+  const { images, loading: imagesLoading } = usePillarImages(dna);
   const calendar = buildCalendar(dna);
 
   return (
     <div className="space-y-4">
-      {/* Week tabs */}
+      {imagesLoading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Fetching images from Unsplash…
+        </div>
+      )}
+
       <Tabs value={String(week)} onValueChange={(v) => setWeek(Number(v))}>
         <TabsList className="w-full">
           {[1, 2, 3, 4].map((w) => (
@@ -422,45 +600,19 @@ function ContentCalendarContent({ dna }: { dna: BusinessDNA }) {
 
         {[1, 2, 3, 4].map((w) => (
           <TabsContent key={w} value={String(w)} className="mt-3">
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-4">
               {calendar
                 .filter((r) => r.week === w)
                 .map((row, i) => (
-                  <div
+                  <PostCard
                     key={i}
-                    className="flex items-start gap-3 rounded-lg border bg-muted/30 px-3 py-2.5"
-                  >
-                    {/* Day badge */}
-                    <div className="shrink-0 text-center w-10">
-                      <p className="text-[10px] font-semibold text-muted-foreground uppercase">
-                        {row.day}
-                      </p>
-                      <p className="text-xs font-bold">{row.date}</p>
-                    </div>
-
-                    <Separator orientation="vertical" className="h-auto self-stretch" />
-
-                    {/* Platform chip + pillar */}
-                    <div className="flex-1 min-w-0">
-                      <span
-                        className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mb-1 text-white ${row.platform.color}`}
-                      >
-                        {row.platform.label}
-                      </span>
-                      <p className="text-xs leading-snug text-foreground font-medium truncate">
-                        {row.pillar}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {dna.brandTone?.split(",")[0] ?? "Engaging"} post for{" "}
-                        {dna.targetAudience?.split(" ").slice(0, 5).join(" ") ?? "your audience"}
-                      </p>
-                    </div>
-
-                    {/* Status dot */}
-                    <div className="shrink-0 flex items-center">
-                      <span className="h-2 w-2 rounded-full bg-primary/40" />
-                    </div>
-                  </div>
+                    day={row.day}
+                    date={row.date}
+                    pillar={row.pillar}
+                    platform={row.platform}
+                    dna={dna}
+                    image={images[row.pillar]}
+                  />
                 ))}
             </div>
           </TabsContent>
@@ -468,7 +620,7 @@ function ContentCalendarContent({ dna }: { dna: BusinessDNA }) {
       </Tabs>
 
       <p className="text-[11px] text-muted-foreground text-center">
-        28-day schedule · Powered by Business DNA
+        28-day schedule · Images via Unsplash · Powered by Business DNA
       </p>
     </div>
   );
@@ -476,56 +628,7 @@ function ContentCalendarContent({ dna }: { dna: BusinessDNA }) {
 
 // ── Caption Generator ─────────────────────────────────────────────────────────
 
-function buildCaptions(dna: BusinessDNA) {
-  const name    = dna.businessName ?? "our brand";
-  const tone    = dna.brandTone?.split(",")[0]?.toLowerCase().trim() ?? "engaging";
-  const pillar  = dna.contentPillars?.[0] ?? "our story";
-  const audience = dna.targetAudience?.split(" ").slice(0, 6).join(" ") ?? "our audience";
-
-  return {
-    Instagram: `✨ Ready to level up? At ${name}, we believe in ${pillar.toLowerCase()}. Every step of the journey matters.\n\nWhether you're just starting out or scaling fast — we've got what you need. 🚀\n\n${tone.charAt(0).toUpperCase() + tone.slice(1)} content. Real results.\n\n#${name.replace(/\s+/g, "")} #Marketing #GrowthMindset #ContentStrategy #SmallBiz`,
-
-    LinkedIn: `At ${name}, we're on a mission to help ${audience} achieve more through ${pillar.toLowerCase()}.\n\nHere's what we've learned: the brands that win aren't just louder — they're clearer. They know their audience. They know their voice.\n\nThat's exactly what we help you build. 💡\n\nCurious how we do it? Drop a comment or visit our site — let's talk strategy.`,
-
-    X: `The brands winning right now aren't the loudest — they're the clearest.\n\n${name} helps ${audience.split(" ").slice(0, 4).join(" ")} cut through the noise with ${pillar.toLowerCase()}.\n\nThread 🧵👇`,
-
-    Facebook: `🎯 Big news for ${audience}!\n\n${name} is helping businesses like yours get ahead with smarter, AI-powered marketing. From content strategy to ad insights — all in one place.\n\nWe're focused on ${pillar.toLowerCase()} and we think you'll love what we've built.\n\n👉 Try it free today. Link in comments!`,
-  };
-}
-
-type PlatformKey = "Instagram" | "LinkedIn" | "X" | "Facebook";
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  return (
-    <Button variant="outline" size="sm" className="gap-1.5 shrink-0" onClick={handleCopy}>
-      {copied ? (
-        <>
-          <Check className="h-3.5 w-3.5 text-green-500" />
-          <span className="text-green-600 text-xs">Copied!</span>
-        </>
-      ) : (
-        <>
-          <Copy className="h-3.5 w-3.5" />
-          <span className="text-xs">Copy</span>
-        </>
-      )}
-    </Button>
-  );
-}
-
-const PLATFORM_TABS: { key: PlatformKey; emoji: string; charLimit: string }[] = [
+const PLATFORM_TABS: { key: PlatformLabel; emoji: string; charLimit: string }[] = [
   { key: "Instagram", emoji: "📸", charLimit: "2,200 chars" },
   { key: "LinkedIn",  emoji: "💼", charLimit: "3,000 chars" },
   { key: "X",        emoji: "𝕏",  charLimit: "280 chars"   },
@@ -533,10 +636,65 @@ const PLATFORM_TABS: { key: PlatformKey; emoji: string; charLimit: string }[] = 
 ];
 
 function CaptionGeneratorContent({ dna }: { dna: BusinessDNA }) {
-  const captions = buildCaptions(dna);
+  const pillars = getPillars(dna);
+  const [selectedPillar, setSelectedPillar] = useState(pillars[0]);
+  const { images, loading: imagesLoading } = usePillarImages(dna);
+  const image = images[selectedPillar];
 
   return (
     <div className="space-y-4">
+      {/* Pillar selector */}
+      <div>
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+          Content Theme
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {pillars.map((p) => (
+            <button
+              key={p}
+              onClick={() => setSelectedPillar(p)}
+              className={`text-[11px] px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                selectedPillar === p
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted text-muted-foreground border-border hover:border-primary/50"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Image preview for selected pillar */}
+      <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border">
+        {imagesLoading ? (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <p className="text-[11px] text-muted-foreground">Loading image…</p>
+          </div>
+        ) : image ? (
+          <>
+            <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+              <p className="text-white text-xs font-semibold">{selectedPillar}</p>
+              <a
+                href={`${image.photoUrl}?utm_source=marketai&utm_medium=referral`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-white/60 text-[10px] hover:text-white/90"
+              >
+                Photo by {image.author} on Unsplash
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <p className="text-[11px] text-muted-foreground">No image available</p>
+          </div>
+        )}
+      </div>
+
+      {/* Platform caption tabs */}
       <Tabs defaultValue="Instagram">
         <TabsList className="w-full">
           {PLATFORM_TABS.map(({ key, emoji }) => (
@@ -547,28 +705,28 @@ function CaptionGeneratorContent({ dna }: { dna: BusinessDNA }) {
           ))}
         </TabsList>
 
-        {PLATFORM_TABS.map(({ key, charLimit }) => (
-          <TabsContent key={key} value={key} className="mt-3">
-            <div className="rounded-lg border bg-muted/20 p-3">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-xs font-semibold">{key} Caption</p>
-                  <p className="text-[10px] text-muted-foreground">Limit: {charLimit}</p>
+        {PLATFORM_TABS.map(({ key, charLimit }) => {
+          const caption = buildCaption(dna, selectedPillar, key);
+          return (
+            <TabsContent key={key} value={key} className="mt-3">
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-xs font-semibold">{key} Caption</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Limit: {charLimit} · Theme: {selectedPillar}
+                    </p>
+                  </div>
+                  <CopyButton text={caption} />
                 </div>
-                <CopyButton text={captions[key]} />
+                <Separator className="mb-2" />
+                <pre className="text-xs leading-relaxed text-foreground whitespace-pre-wrap font-sans">
+                  {caption}
+                </pre>
               </div>
-              <Separator className="mb-2" />
-              {/* Caption text */}
-              <pre className="text-xs leading-relaxed text-foreground whitespace-pre-wrap font-sans">
-                {captions[key]}
-              </pre>
-            </div>
-            <p className="text-[11px] text-muted-foreground text-center mt-2">
-              Generated from your Business DNA · {dna.businessName}
-            </p>
-          </TabsContent>
-        ))}
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );
