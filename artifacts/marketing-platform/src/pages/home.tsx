@@ -13,6 +13,7 @@ import {
   Sparkles,
   BarChart2,
   FileText,
+  Loader2,
 } from "lucide-react";
 
 const features = [
@@ -65,13 +66,32 @@ const testimonials = [
 
 export default function Home() {
   const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [, navigate] = useLocation();
 
-  function handleAnalyze(e: React.FormEvent) {
+  async function handleAnalyze(e: React.FormEvent) {
     e.preventDefault();
-    if (!url.trim()) return;
-    const id = encodeURIComponent(url.trim());
-    navigate(`/dashboard/${id}`);
+    if (!url.trim() || loading) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/onboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Server error ${res.status}`);
+      }
+      const { id } = (await res.json()) as { id: string };
+      navigate(`/dashboard/${id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -127,11 +147,23 @@ export default function Home() {
                 required
               />
             </div>
-            <Button type="submit" size="lg" className="h-11 gap-2 shrink-0">
-              Analyze
-              <ArrowRight className="h-4 w-4" />
+            <Button type="submit" size="lg" className="h-11 gap-2 shrink-0" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analyzing…
+                </>
+              ) : (
+                <>
+                  Analyze
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </Button>
           </form>
+          {error && (
+            <p className="mt-3 text-sm text-destructive">{error}</p>
+          )}
           <p className="mt-3 text-xs text-muted-foreground">
             No credit card required · Results in under 60 seconds
           </p>
