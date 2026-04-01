@@ -21,7 +21,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── marketing-platform/ # AI Marketing Platform (React + Vite, at path /)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -90,6 +91,18 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+### `artifacts/marketing-platform` (`@workspace/marketing-platform`)
+
+AI Marketing Platform frontend — React 19 + Vite + Tailwind CSS + shadcn/ui. Served at `/`.
+
+- Entry: `src/main.tsx` → `src/App.tsx` (wouter router + React Query)
+- Pages: `src/pages/home.tsx` — branded placeholder splash with feature cards
+- `src/lib/env.ts` — typed accessors for all env vars (`GEMINI_API_KEY`, `FIRECRAWL_API_KEY`, `FIREBASE_CONFIG`)
+- Dependencies: `firebase`, `@google/genai`, `@mendable/firecrawl-js`, `recharts`, full shadcn/ui component set, `lucide-react`
+- All secrets stored as Replit Secrets; VITE_* prefixed vars expose them to the Vite client
+- `.gitignore` covers `.env`, `.env.local`, `.env*.local`
+- Theme: purple primary with clean white/dark mode support
 
 ### `scripts` (`@workspace/scripts`)
 
