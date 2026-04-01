@@ -3,6 +3,16 @@ import { useParams, useLocation } from "wouter";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import {
   SidebarProvider,
   Sidebar,
   SidebarContent,
@@ -203,6 +213,165 @@ function BusinessDNAContent({ dna }: { dna: BusinessDNA }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ── Ad Insights mock data & chart ────────────────────────────────────────────
+
+const AD_DATA = [
+  { day: "Apr 1",  ctr: 1.8, roas: 2.1 },
+  { day: "Apr 2",  ctr: 2.0, roas: 2.3 },
+  { day: "Apr 3",  ctr: 1.7, roas: 2.0 },
+  { day: "Apr 4",  ctr: 2.2, roas: 2.5 },
+  { day: "Apr 5",  ctr: 2.5, roas: 2.8 },
+  { day: "Apr 6",  ctr: 2.1, roas: 2.6 },
+  { day: "Apr 7",  ctr: 1.9, roas: 2.4 },
+  { day: "Apr 8",  ctr: 2.4, roas: 3.0 },
+  { day: "Apr 9",  ctr: 2.7, roas: 3.2 },
+  { day: "Apr 10", ctr: 2.6, roas: 3.1 },
+  { day: "Apr 11", ctr: 2.3, roas: 2.9 },
+  { day: "Apr 12", ctr: 2.8, roas: 3.4 },
+  { day: "Apr 13", ctr: 3.0, roas: 3.7 },
+  { day: "Apr 14", ctr: 2.9, roas: 3.5 },
+  { day: "Apr 15", ctr: 3.1, roas: 3.9 },
+  { day: "Apr 16", ctr: 2.5, roas: 3.2 },
+  { day: "Apr 17", ctr: 2.2, roas: 2.8 },
+  { day: "Apr 18", ctr: 2.7, roas: 3.3 },
+  { day: "Apr 19", ctr: 3.2, roas: 4.0 },
+  { day: "Apr 20", ctr: 3.4, roas: 4.2 },
+  { day: "Apr 21", ctr: 3.1, roas: 3.8 },
+  { day: "Apr 22", ctr: 3.5, roas: 4.5 },
+  { day: "Apr 23", ctr: 3.8, roas: 4.8 },
+  { day: "Apr 24", ctr: 3.6, roas: 4.6 },
+  { day: "Apr 25", ctr: 3.3, roas: 4.3 },
+  { day: "Apr 26", ctr: 3.7, roas: 4.7 },
+  { day: "Apr 27", ctr: 4.0, roas: 5.1 },
+  { day: "Apr 28", ctr: 3.9, roas: 5.0 },
+  { day: "Apr 29", ctr: 4.2, roas: 5.3 },
+  { day: "Apr 30", ctr: 4.5, roas: 5.6 },
+];
+
+function AdInsightsContent() {
+  return (
+    <div className="space-y-6">
+      {/* Chart */}
+      <div>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+          CTR & ROAS — Last 30 Days
+        </p>
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={AD_DATA} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+            <XAxis
+              dataKey="day"
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              interval={4}
+              className="fill-muted-foreground"
+            />
+            <YAxis
+              yAxisId="ctr"
+              orientation="left"
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => `${v}%`}
+              domain={[0, 6]}
+              className="fill-muted-foreground"
+            />
+            <YAxis
+              yAxisId="roas"
+              orientation="right"
+              tick={{ fontSize: 10 }}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(v: number) => `${v}x`}
+              domain={[0, 7]}
+              className="fill-muted-foreground"
+            />
+            <Tooltip
+              contentStyle={{
+                fontSize: 12,
+                borderRadius: 8,
+                border: "1px solid hsl(var(--border))",
+                background: "hsl(var(--popover))",
+                color: "hsl(var(--popover-foreground))",
+              }}
+              formatter={(value: number, name: string) =>
+                name === "ctr" ? [`${value}%`, "CTR"] : [`${value}x`, "ROAS"]
+              }
+            />
+            <Legend
+              wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+              formatter={(value) => (value === "ctr" ? "CTR (%)" : "ROAS (x)")}
+            />
+            <Line
+              yAxisId="ctr"
+              type="monotone"
+              dataKey="ctr"
+              stroke="hsl(var(--primary))"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+            <Line
+              yAxisId="roas"
+              type="monotone"
+              dataKey="roas"
+              stroke="#22c55e"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <Separator />
+
+      {/* Stat pills */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Avg CTR", value: "3.1%", delta: "+2.7%" },
+          { label: "Avg ROAS", value: "3.6x", delta: "+3.5x" },
+          { label: "Peak Day", value: "Apr 30", delta: "4.5% CTR" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-lg bg-muted/60 px-3 py-2.5 text-center">
+            <p className="text-xs text-muted-foreground mb-0.5">{s.label}</p>
+            <p className="text-base font-bold">{s.value}</p>
+            <p className="text-xs text-green-500 font-medium">{s.delta}</p>
+          </div>
+        ))}
+      </div>
+
+      <Separator />
+
+      {/* AI Recommendation */}
+      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="p-1 rounded-md bg-primary/15">
+            <BarChart2 className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+            AI Recommendation
+          </p>
+        </div>
+        <p className="text-sm leading-relaxed text-foreground">
+          Your ROAS has climbed{" "}
+          <span className="font-semibold text-green-500">167% month-over-month</span>{" "}
+          while CTR has more than doubled. The data suggests your audience targeting
+          is resonating strongly in the second half of the month.{" "}
+          <span className="font-medium">
+            Reallocate 30–40% of your budget from awareness campaigns to retargeting
+            ads in the Apr 22–30 window
+          </span>{" "}
+          — this is when conversion intent peaks. Consider pausing low-performing
+          ad sets from Apr 1–7 (CTR &lt; 2%) to free up spend for your top-performing
+          creative, which is driving the ROAS spike to 5.6x.
+        </p>
+      </div>
     </div>
   );
 }
@@ -431,12 +600,16 @@ export default function Dashboard() {
                 />
 
                 {/* AD INSIGHTS */}
-                <DashboardSection
-                  icon={BarChart2}
-                  title="Ad Insights"
-                  description="AI-powered ad copy, targeting recommendations & creative briefs"
-                  badge="Step 4"
-                />
+                <div className="lg:col-span-2">
+                  <DashboardSection
+                    icon={BarChart2}
+                    title="Ad Insights"
+                    description="AI-powered ad performance, budget recommendations & creative briefs"
+                    badge="Step 4"
+                  >
+                    <AdInsightsContent />
+                  </DashboardSection>
+                </div>
               </div>
             )}
           </main>
