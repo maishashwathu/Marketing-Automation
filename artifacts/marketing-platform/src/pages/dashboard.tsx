@@ -414,7 +414,23 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  // Real-time Firestore listener
+  // Seed state from sessionStorage immediately so the dashboard renders
+  // even when Firebase Admin / Firestore hasn't been fully configured yet.
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const cached = sessionStorage.getItem(`business_${id}`);
+      if (cached) {
+        setBusiness(JSON.parse(cached) as BusinessDoc);
+        setLoading(false);
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, [id]);
+
+  // Real-time Firestore listener — enhances the session-cached data when
+  // Firestore is available; degrades gracefully when it is not.
   useEffect(() => {
     if (!id) return;
 
@@ -423,16 +439,32 @@ export default function Dashboard() {
       ref,
       (snap) => {
         if (!snap.exists()) {
-          setNotFound(true);
+          // Only show "not found" if we also have no sessionStorage fallback.
+          const hasCached = Boolean(
+            (() => {
+              try { return sessionStorage.getItem(`business_${id}`); }
+              catch { return null; }
+            })()
+          );
+          if (!hasCached) {
+            setNotFound(true);
+          }
           setLoading(false);
           return;
         }
-        setBusiness(snap.data() as BusinessDoc);
+        // Firestore data is authoritative — overwrite session cache.
+        const data = snap.data() as BusinessDoc;
+        setBusiness(data);
         setLoading(false);
         setNotFound(false);
+        try {
+          sessionStorage.setItem(`business_${id}`, JSON.stringify(data));
+        } catch { /* ignore */ }
       },
       (err) => {
-        console.error("Firestore onSnapshot error:", err);
+        // Firestore unavailable (no config, permission denied, etc.)
+        // Fall back silently to whatever sessionStorage already provided.
+        console.warn("Firestore onSnapshot error (using cached data):", err);
         setLoading(false);
       },
     );

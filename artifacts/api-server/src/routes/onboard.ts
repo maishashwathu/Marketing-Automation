@@ -87,7 +87,7 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: prompt,
     });
 
