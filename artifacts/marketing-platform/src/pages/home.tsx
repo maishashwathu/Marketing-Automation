@@ -85,13 +85,18 @@ export default function Home() {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `Server error ${res.status}`);
       }
-      const data = (await res.json()) as { id: string; dna?: unknown; url?: string };
-      // Cache the result so the dashboard can display it even if Firestore
+      const data = (await res.json()) as { id: string; plan?: unknown; dna?: unknown; url?: string };
+      // Cache the full plan so the dashboard can display it even if Firestore
       // isn't configured yet (Firebase Admin credentials not fully set up).
       try {
         sessionStorage.setItem(
           `business_${data.id}`,
-          JSON.stringify({ url: url.trim(), dna: data.dna, status: "done" }),
+          JSON.stringify({
+            url: url.trim(),
+            plan: data.plan,
+            dna: (data.plan as { dna?: unknown } | undefined)?.dna ?? data.dna,
+            status: "done",
+          }),
         );
       } catch {
         // sessionStorage may be unavailable in some environments — safe to ignore
