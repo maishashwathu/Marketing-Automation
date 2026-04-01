@@ -8,7 +8,9 @@
  *
  *   VITE_GEMINI_API_KEY               → from https://aistudio.google.com/apikey
  *   VITE_FIRECRAWL_API_KEY            → from https://firecrawl.dev
- *                                        (npm package: @mendable/firecrawl-js)
+ *                                        npm package: @mendable/firecrawl-js
+ *                                        (the package "firecrawl-js" does not exist
+ *                                        on npm — use "@mendable/firecrawl-js")
  *   VITE_FIREBASE_API_KEY             → Firebase project web API key
  *   VITE_FIREBASE_AUTH_DOMAIN         → e.g. my-project.firebaseapp.com
  *   VITE_FIREBASE_PROJECT_ID          → Firebase project ID
