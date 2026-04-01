@@ -3,6 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Zap, Brain, Globe, TrendingUp } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { initializeApp, getApps } from "firebase/app";
+import { FIREBASE_CONFIG } from "@/lib/env";
 
 const features = [
   {
@@ -31,7 +34,21 @@ const features = [
   },
 ];
 
+const mockChartData = [
+  { name: "Mon", impressions: 4200 },
+  { name: "Tue", impressions: 5800 },
+  { name: "Wed", impressions: 4900 },
+  { name: "Thu", impressions: 7200 },
+  { name: "Fri", impressions: 6800 },
+  { name: "Sat", impressions: 3500 },
+  { name: "Sun", impressions: 4100 },
+];
+
 export default function Home() {
+  if (!getApps().length) {
+    initializeApp(FIREBASE_CONFIG);
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="border-b">
@@ -63,7 +80,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           {features.map((feature) => {
             const Icon = feature.icon;
             return (
@@ -89,6 +106,23 @@ export default function Home() {
             );
           })}
         </section>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Weekly Impressions Preview</CardTitle>
+            <CardDescription>Sample analytics chart powered by Recharts — real data coming in Step 2+</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={mockChartData}>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} className="text-xs" />
+                <YAxis axisLine={false} tickLine={false} className="text-xs" />
+                <Tooltip />
+                <Bar dataKey="impressions" fill="hsl(262 80% 60%)" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </main>
 
       <footer className="border-t mt-16">

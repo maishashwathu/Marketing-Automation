@@ -2,18 +2,26 @@
  * Typed environment variable accessors for the AI Marketing Platform.
  *
  * All sensitive values are stored as Replit Secrets (environment variables).
- * In Vite, env vars are exposed to client code only when prefixed with VITE_.
- * Set the corresponding secret names in Replit Secrets so Vite picks them up.
+ * In Vite, env vars are exposed to the browser only when prefixed with VITE_.
  *
- * Required secrets:
- *   VITE_GEMINI_API_KEY          → from https://aistudio.google.com/apikey
- *   VITE_FIRECRAWL_API_KEY       → from https://firecrawl.dev
- *   VITE_FIREBASE_API_KEY        → Firebase project web API key
- *   VITE_FIREBASE_AUTH_DOMAIN    → Firebase auth domain
- *   VITE_FIREBASE_PROJECT_ID     → Firebase project ID
- *   VITE_FIREBASE_STORAGE_BUCKET → Firebase storage bucket
+ * ── CLIENT-SIDE SECRETS (set these as VITE_* in Replit Secrets) ──────────────
+ *
+ *   VITE_GEMINI_API_KEY               → from https://aistudio.google.com/apikey
+ *   VITE_FIRECRAWL_API_KEY            → from https://firecrawl.dev
+ *                                        (npm package: @mendable/firecrawl-js)
+ *   VITE_FIREBASE_API_KEY             → Firebase project web API key
+ *   VITE_FIREBASE_AUTH_DOMAIN         → e.g. my-project.firebaseapp.com
+ *   VITE_FIREBASE_PROJECT_ID          → Firebase project ID
+ *   VITE_FIREBASE_STORAGE_BUCKET      → e.g. my-project.appspot.com
  *   VITE_FIREBASE_MESSAGING_SENDER_ID → Firebase messaging sender ID
- *   VITE_FIREBASE_APP_ID         → Firebase app ID
+ *   VITE_FIREBASE_APP_ID              → Firebase app ID
+ *
+ * ── SERVER-SIDE ONLY (DO NOT use in Vite/browser code) ───────────────────────
+ *
+ *   FIREBASE_SERVICE_ACCOUNT → Full service account JSON (from Firebase Console
+ *                               → Project Settings → Service Accounts).
+ *                               Used only in server-side code (e.g. api-server).
+ *                               NEVER expose this to the browser.
  */
 
 export const GEMINI_API_KEY: string =
