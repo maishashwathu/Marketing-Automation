@@ -439,6 +439,19 @@ interface UnsplashImage {
   photoUrl: string;
 }
 
+function picsumFallback(pillar: string, idx: number): UnsplashImage {
+  const seed = encodeURIComponent(pillar.toLowerCase().replace(/\s+/g, "-"));
+  return {
+    id: `picsum-${idx}`,
+    url: `https://picsum.photos/seed/${seed}/800/450`,
+    small: `https://picsum.photos/seed/${seed}/400/225`,
+    thumb: `https://picsum.photos/seed/${seed}/200/113`,
+    alt: pillar,
+    author: "Picsum Photos",
+    photoUrl: "https://picsum.photos",
+  };
+}
+
 function usePillarImages(dna: BusinessDNA) {
   const [images, setImages] = useState<Record<string, UnsplashImage>>({});
   const [loading, setLoading] = useState(true);
@@ -452,16 +465,20 @@ function usePillarImages(dna: BusinessDNA) {
       const results: Record<string, UnsplashImage> = {};
 
       await Promise.all(
-        pillars.map(async (pillar) => {
+        pillars.map(async (pillar, idx) => {
           try {
             const q = `${pillar} ${dna.businessName} business`.slice(0, 120);
             const res = await fetch(`/api/images?q=${encodeURIComponent(q)}&per_page=1`);
-            if (!res.ok) return;
-            const data = (await res.json()) as { images: UnsplashImage[] };
-            if (data.images?.[0]) results[pillar] = data.images[0];
-          } catch {
-            // ignore per-pillar failures
-          }
+            if (res.ok) {
+              const data = (await res.json()) as { images: UnsplashImage[] };
+              if (data.images?.[0]) {
+                results[pillar] = data.images[0];
+                return;
+              }
+            }
+          } catch { /* ignore */ }
+          // Always fall back to Picsum so images never stay blank
+          results[pillar] = picsumFallback(pillar, idx);
         })
       );
 
@@ -540,8 +557,8 @@ function PostCard({
         <span className="absolute top-2 right-2 text-[10px] font-semibold bg-black/60 text-white px-2 py-0.5 rounded-full">
           {day} · {date}
         </span>
-        {/* Unsplash credit */}
-        {image && (
+        {/* Photo credit (only for real Unsplash photos) */}
+        {image && !image.id.startsWith("picsum-") && (
           <a
             href={`${image.photoUrl}?utm_source=marketai&utm_medium=referral`}
             target="_blank"
@@ -638,8 +655,6 @@ const PLATFORM_TABS: { key: PlatformLabel; emoji: string; charLimit: string }[] 
 function CaptionGeneratorContent({ dna }: { dna: BusinessDNA }) {
   const pillars = getPillars(dna);
   const [selectedPillar, setSelectedPillar] = useState(pillars[0]);
-  const { images, loading: imagesLoading } = usePillarImages(dna);
-  const image = images[selectedPillar];
 
   return (
     <div className="space-y-4">
@@ -663,35 +678,6 @@ function CaptionGeneratorContent({ dna }: { dna: BusinessDNA }) {
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Image preview for selected pillar */}
-      <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border">
-        {imagesLoading ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            <p className="text-[11px] text-muted-foreground">Loading image…</p>
-          </div>
-        ) : image ? (
-          <>
-            <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-              <p className="text-white text-xs font-semibold">{selectedPillar}</p>
-              <a
-                href={`${image.photoUrl}?utm_source=marketai&utm_medium=referral`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-white/60 text-[10px] hover:text-white/90"
-              >
-                Photo by {image.author} on Unsplash
-              </a>
-            </div>
-          </>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <p className="text-[11px] text-muted-foreground">No image available</p>
-          </div>
-        )}
       </div>
 
       {/* Platform caption tabs */}
