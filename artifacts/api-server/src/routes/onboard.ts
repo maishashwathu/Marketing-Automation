@@ -32,17 +32,54 @@ interface BusinessDNA {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const DUMMY_DNA: BusinessDNA = {
-  businessName: "Acme Corp",
-  targetAudience: "Small business owners and entrepreneurs",
-  brandTone: "Professional, approachable, and innovative",
-  contentPillars: [
-    "Product education & tutorials",
-    "Customer success stories",
-    "Industry trends & insights",
-    "Behind-the-scenes culture",
-  ],
-};
+/**
+ * Extract a best-guess business name from scraped content or URL.
+ * Priority: markdown H1 → title field → domain name.
+ */
+function guessBusinessName(url: string, scrapedText: string): string {
+  // 1. First H1 heading from Firecrawl markdown
+  const h1 = scrapedText.match(/^#\s+(.+)/m)?.[1]?.trim();
+  if (h1 && h1.length < 80) return h1;
+
+  // 2. title: metadata line
+  const titleMeta = scrapedText.match(/^title:\s*(.+)/im)?.[1]?.trim();
+  if (titleMeta && titleMeta.length < 80) {
+    // Strip common suffixes like " | Official Site", " - Home" etc.
+    return titleMeta.replace(/\s*[|\-–—]\s*.+$/, "").trim();
+  }
+
+  // 3. Domain name heuristic: balajiwafers.com → "Balajiwafers", stripe.com → "Stripe"
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, "");
+    const domain = hostname.split(".")[0];
+    return domain
+      .replace(/[-_]/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  } catch {
+    return "Your Business";
+  }
+}
+
+/**
+ * Build a context-aware fallback DNA when Gemini is unavailable.
+ * Uses actual URL + scraped content so data is never "Acme Corp".
+ */
+function buildFallbackDNA(url: string, scrapedText: string): BusinessDNA {
+  const businessName = guessBusinessName(url, scrapedText);
+  return {
+    businessName,
+    targetAudience:
+      "Customers and prospects who can benefit from our products and services",
+    brandTone: "Professional, friendly, and customer-focused",
+    contentPillars: [
+      "Product highlights & benefits",
+      "Customer testimonials & success stories",
+      "Industry tips & best practices",
+      "Behind-the-scenes & company culture",
+    ],
+  };
+}
 
 async function scrapeUrl(url: string): Promise<string> {
   const apiKey = process.env["FIRECRAWL_API_KEY"];
@@ -65,8 +102,8 @@ async function scrapeUrl(url: string): Promise<string> {
 async function extractDNA(url: string, scrapedText: string): Promise<BusinessDNA> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
-    logger.warn("GEMINI_API_KEY not set — returning dummy DNA");
-    return DUMMY_DNA;
+    logger.warn("GEMINI_API_KEY not set — returning fallback DNA");
+    return buildFallbackDNA(url, scrapedText);
   }
 
   const prompt = `You are a marketing strategist. Analyze the following website content and extract key business information.
@@ -110,8 +147,8 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
 
     return parsed;
   } catch (err) {
-    logger.warn({ err }, "Gemini extraction failed — returning dummy DNA");
-    return DUMMY_DNA;
+    logger.warn({ err }, "Gemini extraction failed — returning fallback DNA");
+    return buildFallbackDNA(url, scrapedText);
   }
 }
 
